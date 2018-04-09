@@ -1,0 +1,21 @@
+{
+  "name": "OutdoorGamesNotificationBackend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node --inspect --debug-brk index.js"
+  },
+  "repository": "https://github.com/eynol/OutdoorGamesNotificationBackend.git",
+  "author": "eynol <625608852@qq.com>",
+  "license": "MIT",
+  "dependencies": {
+    "mongoose": "^5.0.13",
+    "restify": "^7.1.0",
+    "restify-cors-middleware": "^1.1.0",
+    "ws": "^5.1.1"
+  },
+  "optionalDependencies": {
+    "bufferutil": "^3.0.4",
+    "utf-8-validate": "^4.0.1"
+  }
+}
