@@ -9,6 +9,7 @@
   "author": "eynol <625608852@qq.com>",
   "license": "MIT",
   "dependencies": {
+    "crypto-js": "^3.1.9-1",
     "mongoose": "^5.0.13",
     "restify": "^7.1.0",
     "restify-cors-middleware": "^1.1.0",

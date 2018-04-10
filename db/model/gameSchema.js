@@ -3,9 +3,18 @@ const Schema = mongoose.Schema;
 
 
 const gameSchema = mongoose.Schema({
-  owner: Schema.Types.ObjectId,
-  title: String,//标题
-  desc: String,//描述
+  owner: {
+    type: Schema.Types.ObjectId,
+    index: true
+  },
+  title: {
+    type: String,
+    require: true
+  },//标题
+  desc:  {
+    type: String,
+    require: true
+  },//描述
   status: String,//当前状态
   rules: String,//游戏规则
   location: String,
@@ -17,5 +26,25 @@ const gameSchema = mongoose.Schema({
   joinType: String,//加入类型
   allowedAdmins: Schema.Types.Array,
 }, { timestamps: true });
+
+
+gameSchema.methods.moreDetail = function () {
+  return this.model('joinlist')
+    .find({ _gameId: this._id })
+    .then(teamList => {
+      if (teamList.lenth == 0) {
+        return Promise.reject('Not Found');
+      }
+
+      this.team = teamList.map(
+        list => ({
+          _id: list._id,
+          name: list.team || ''
+        }));
+
+      return this;
+    });
+
+};
 
 module.exports = gameSchema;

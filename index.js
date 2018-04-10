@@ -25,6 +25,24 @@ server.use(cors.actual);
 
 const port = config.env.port || 3000;
 
+server.on('InternalServer', function (req, res, err, callback) {
+  console.error(err);
+  return callback();
+});
+
+server.on('restifyError', function (req, res, err, callback) {
+  err.toJSON = function customToJSON() {
+    return {
+      name: err.name,
+      message: err.message
+    };
+  };
+  err.toString = function customToString() {
+    return 'i just want a string';
+  };
+  return callback();
+});
+
 server.listen(port, function () {
   //eslint-disable-next-line
   console.log('Server is listening at ', port);

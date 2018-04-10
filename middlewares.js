@@ -1,5 +1,7 @@
 const restify = require('restify');
 
+const commonRejectPlugin = require('./middlewares/commonReject');
+
 function middlewaresInjector(server) {
 
   //restify default plugins
@@ -18,7 +20,7 @@ function middlewaresInjector(server) {
   server.use(restify.plugins.gzipResponse());
   server.use(restify.plugins.queryParser());
   server.use(restify.plugins.bodyParser());
-
+  server.use(commonRejectPlugin());
 }
 
 module.exports = middlewaresInjector;
