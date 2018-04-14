@@ -6,8 +6,7 @@ const userManager = require('../controller/user');
 
 
 const signin = $('post', '/user/signin', (req, res, next) => {
-  const { username, password } = req.body;
-  userManager.signIn(username, password).then(user => {
+  userManager.signIn(req.body).then(user => {
     res.send({ status: 200, user: user });
     next();
   }).catch(e => {
@@ -51,7 +50,7 @@ const updatePassword = $('post', '/user/updatepassword', (req, res, next) => {
   const password = req.body.password;
 
   userManager.updateUserPassword(uid, password).then(() => {
-    res.send({ status: 200, message: 'successd!' });
+    res.send({ status: 200, message: 'succeed!' });
     next();
   }).catch(res.commonReject(next));
 });

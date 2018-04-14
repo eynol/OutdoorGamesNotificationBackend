@@ -1,6 +1,4 @@
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
-
 
 const userSchema = mongoose.Schema({
   nickname: {
@@ -18,18 +16,28 @@ const userSchema = mongoose.Schema({
     require: true,
     index: true,
   },
-  uuid: Schema.Types.Array
+  uuid: [String]
 }, { timestamps: true });
 
 
 userSchema.methods.toSafeObject = function () {
   const user = this.toObject();
 
-  ['updatedAt', 'password','createdAt'].forEach(key => {
+  ['updatedAt', 'password', 'createdAt', 'uuid'].forEach(key => {
     delete user[key];
   });
 
   return user;
+};
+
+userSchema.methods.upsertUUID = function (uuid) {
+
+  if (this.uuid.includes(uuid)) {
+    return Promise.resolve(this);
+  } else {
+    this.uuid.push(uuid);
+    return this.save();
+  }
 };
 
 module.exports = userSchema;
