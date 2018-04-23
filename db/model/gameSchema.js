@@ -24,7 +24,7 @@ const gameSchema = mongoose.Schema({
   autoEnd: Boolean,//自动结束
   additions: String,//备注
   joinType: String,//加入类型
-  allowedAdmins: Schema.Types.Array,
+  allowedAdmins: [String],
 }, { timestamps: true });
 
 
@@ -32,16 +32,10 @@ gameSchema.methods.moreDetail = function () {
   return this.model('joinlist')
     .find({ _gameId: this._id })
     .then(teamList => {
-      if (teamList.lenth == 0) {
+      if (teamList.length == 0) {
         return Promise.reject('Not Found');
       }
-
-      this.team = teamList.map(
-        list => ({
-          _id: list._id,
-          name: list.team || ''
-        }));
-
+      this.team = teamList;
       return this;
     });
 

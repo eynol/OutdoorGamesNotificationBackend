@@ -15,8 +15,12 @@ function WSServer(server) {
   var WebSocketServer = require('ws').Server;
   var wss = new WebSocketServer({ server: server });
 
+  wss.on('close', function (ws) {
+    console.log('close', ws);
+  });
   wss.on('connection', function (ws) {
     const badResult = (e) => {
+      console.error(e);
       sendJSON(ws, {
         type: 'error', e
       });
@@ -52,16 +56,16 @@ function WSServer(server) {
               Game._getGame(gid),
             ]).then(([user, game]) => {
               const safeUser = user.toSafeObject();
-              const ownerid = game.owner;
+              const ownerid = game.owner.toString();
 
               //先看对应的管理员是否在线
               let online = false;
-              for (let client of clientsBus.clients.values()) {
+              for (const client of clientsBus.clients.values()) {
                 if (client.uid === ownerid) {
                   //对应的管理员在线
                   //向其询问是否允许申请
                   online = true;
-                  client.ws.send({ type: 'ASSISTANT_REQ', user: safeUser, game: game });
+                  sendJSON(client.ws, { type: 'ASSISTANT_REQ', user: safeUser, game: game });
 
                 }
               }
@@ -90,11 +94,11 @@ function WSServer(server) {
               }
             }).then(() => {
               //先看对应的管理员是否在线
-              for (let client of clientsBus.clients.values()) {
+              for (const client of clientsBus.clients.values()) {
                 if (client.uid === uid) {
                   //对应的管理员在线
                   //告诉申请管理的结果是什么
-                  client.ws.send({ type: 'ASSISTANT_RESP', result });
+                  sendJSON(client.ws, { type: 'ASSISTANT_RESP', result });
                 }
               }
 
@@ -187,22 +191,100 @@ function websocketHttpHandler({ path, data, req_id }, ws) {
       }).catch(commonRej);
       break;
     }
+    case publicPath + '/games/begin': {
+      Game.beginGame(data.body).then(games => {
+        sendJSONResult(ws, req_id, { list: games });
+      }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/games/end': {
+      Game.endGame(data.body).then(games => {
+        sendJSONResult(ws, req_id, { list: games });
+      }).catch(commonRej);
+      break;
+    }
     case publicPath + '/games/join': {
-
-
-      sendJSONResult(ws, req_id, { message: 'yoooooooo' });
-
+      Game.joinGame(data.body).then(list => {
+        sendJSONResult(ws, req_id, { team: list, result: 'ok' });
+      }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/games/exit': {
+      Game.exitGame(data.body).then(() => {
+        sendJSONResult(ws, req_id, { result: 'ok' });
+      }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/games/delete': {
+      Game.deleteGame(data.body).then(() => {
+        sendJSONResult(ws, req_id, { result: 'ok' });
+      }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/games/updategame': {
+      Game.updateGame(data.body).then(() => {
+        sendJSONResult(ws, req_id, { result: 'ok' });
+      }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/games/scoreadd': {
+      Game.scoreAdd(data.body)
+        .then(() => Game.getJoinList(data.body.gid))
+        .then((team) => {
+          sendJSONResult(ws, req_id, { team });
+        }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/games/scoreminus': {
+      Game.scoreMinus(data.body)
+        .then(() => Game.getJoinList(data.body.gid))
+        .then((team) => {
+          sendJSONResult(ws, req_id, { team });
+        }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/games/updateteamname': {
+      Game.updateTeamName(data.body)
+        .then(() => Game.getJoinList(data.body.gid))
+        .then((team) => {
+          sendJSONResult(ws, req_id, { team });
+        }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/games/createteam': {
+      Game.createTeam(data.body)
+        .then(() => Game.getJoinList(data.body.gid))
+        .then((team) => {
+          sendJSONResult(ws, req_id, { team });
+        }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/games/deleteteam': {
+      Game.deleteTeam(data.body)
+        .then(() => Game.getJoinList(data.body.gid))
+        .then((team) => {
+          sendJSONResult(ws, req_id, { team });
+        }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/games/switchteam': {
+      Game.switchTeam(data.body)
+        .then(() => Game.getJoinList(data.body.gid))
+        .then((team) => {
+          sendJSONResult(ws, req_id, { team });
+        }).catch(commonRej);
       break;
     }
     case publicPath + '/user/updatenickname': {
-      const { _id, nickname } = data;
+      const { _id, nickname } = data.body;
       User.updateUserNickname(_id, nickname).then(() => {
         sendJSONResult(ws, req_id, { nickname });
       }).catch(commonRej);
       break;
     }
+
     case publicPath + '/user/updatepassword': {
-      const { _id, password } = data;
+      const { _id, password } = data.body;
       User.updateUserPassword(_id, password).then(() => {
         sendJSONResult(ws, req_id, { message: 'succeed' });
       }).catch(commonRej);
@@ -210,14 +292,14 @@ function websocketHttpHandler({ path, data, req_id }, ws) {
     }
     case publicPath + '/user/signin': {
 
-      User.signIn(data).then((user) => {
+      User.signIn(data.body).then((user) => {
         sendJSONResult(ws, req_id, { user: user });
       }).catch(commonRej);
       break;
     }
     case publicPath + '/user/signup': {
 
-      User.createUser(data).then((user) => {
+      User.createUser(data.body).then((user) => {
         sendJSONResult(ws, req_id, { user: user }
         );
       }).catch(commonRej);
