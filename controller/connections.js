@@ -1,4 +1,36 @@
 
+
+function Channel(gameid) {
+  this.gameid = gameid;
+  this.members = new Map();
+}
+
+Channel.prototype.join = function (uid, ws) {
+  this.members.set(uid, ws);
+};
+
+Channel.prototype.leave = function (uid) {
+  this.members.delete(uid);
+};
+
+
+var ChannelManager = {
+  channels: new Map(),
+  get: function (gid) {
+    if (this.channels.has(gid)) {
+      return this.channels.get(gid);
+    } else {
+      const channel = new Channel(gid);
+      this.channels.set(gid, channel);
+      return channel;
+    }
+  },
+  delete: function (gid) {
+    this.channels.delete(gid);
+  }
+};
+
+
 function ClientsBus() {
   this.clients = new Map();
   this.checkAlive = this.checkAlive.bind(this);
@@ -9,32 +41,43 @@ ClientsBus.prototype.getTicket = function (clientId, websocket) {
     ws: websocket,
     clientId: clientId,
     timmer: setTimeout(() => {
-      this.checkOut(clientId);
+      this.checkOut(clientId, '验证超时');
     }, 3000),
     req: new Map(),
     last: Date.now(),
   });
 };
 
-ClientsBus.prototype.ticketChecked = function (clientId, uid, temp = false) {
-  
+ClientsBus.prototype.ticketChecked = function (clientId, uid) {
+
   const client = this.clients.get(clientId);
   clearTimeout(client.timmer);
+
   client.uid = uid;
-  client.temp = temp;//临时用户
-  console.log('checkin:',clientId,uid);
+
+  console.log('checkin:', clientId, uid);
 };
 
 ClientsBus.prototype.get = function (clientId) {
   return this.clients.get(clientId);
 };
 
-ClientsBus.prototype.checkOut = function (clientId) {
+ClientsBus.prototype.checkOut = function (clientId, reason) {
   const client = this.clients.get(clientId);
   if (client) {
-    client.ws.close();
+    if (reason !== 'close') {
+      client.ws.close(1000, reason);
+    }
+
+
+    if (client.channel) {
+      client.channel.leave(client.uid);
+      if (client.channel.size === 0) {
+        ChannelManager.delete(client.gid);
+      }
+    }
     this.clients.delete(clientId);
-    console.log('checkout,',clientId);
+    console.log('checkout,', clientId);
   }
 };
 
@@ -56,7 +99,7 @@ ClientsBus.prototype.checkAlive = function () {
   for (let client of this.clients.values()) {
     const during = now - client.last;
     if (during > 40000) {
-      this.checkOut(client.clientId);
+      this.checkOut(client.clientId, 'timeout');
     }
   }
   return this;
@@ -67,7 +110,14 @@ ClientsBus.prototype.stop = function () {
   return this;
 };
 
-
+ClientsBus.prototype.joinGame = function (clientId, gid) {
+  const client = this.clients.get(clientId);
+  if (client) {
+    client.channel = ChannelManager.get(gid);
+    client.channel.join(client.uid, client.ws);
+    client.gid = gid;
+  }
+};
 const clientsBus = new ClientsBus().start();
 
 module.exports = clientsBus;

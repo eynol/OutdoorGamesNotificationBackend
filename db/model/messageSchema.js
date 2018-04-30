@@ -7,11 +7,12 @@ const messageSchema = mongoose.Schema({
     type: Schema.Types.ObjectId,
     index: true
   },
+  _creator_nick: String,
   _creator: {
     type: Schema.Types.ObjectId,
     index: true
   },//创建者
-  reciever: Schema.Types.Array,//接受者
+  reciever: Schema.Types.Mixed,//接受者
   text: String,//推送消息
   read: {
     type: Boolean,

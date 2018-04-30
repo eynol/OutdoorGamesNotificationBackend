@@ -5,6 +5,9 @@ const encode = require('./utils/encode');
 const Game = require('./controller/game');
 
 const User = require('./controller/user');
+
+const Message = require('./controller/message');
+
 const config = require('./config');
 const publicPath = config.env.publicPath;
 
@@ -16,6 +19,9 @@ function WSServer(server) {
   var wss = new WebSocketServer({ server: server });
 
   wss.on('close', function (ws) {
+
+    const client = clientsBus.get(ws.$$session);
+
     console.log('close', ws);
   });
   wss.on('connection', function (ws) {
@@ -31,7 +37,7 @@ function WSServer(server) {
       console.info('STREAM_CLOSE_WS');
       //eslint-disable-next-line
       console.dir(code, reason);
-      clientsBus.checkOut(ws.$$session);
+      clientsBus.checkOut(ws.$$session, 'close');
     });
 
     // `data`: Buffer
@@ -115,7 +121,7 @@ function WSServer(server) {
             User.getUUID(uid).then(uuid => {
               const encryptList = uuid.map(val => encode(val, 'websocket', '/', ws.$$session));
               // const encryptList = uuid.map(val => encode.sha256(val + ws.$$session));
-
+              console.log(encryptList, uid);
               if (encryptList.includes(token)) {
                 clientsBus.ticketChecked(ws.$$session, uid);
                 sendJSON(ws, {
@@ -128,13 +134,58 @@ function WSServer(server) {
             }).catch(e => {
               sendJSON(ws, {
                 type: 'auth-3',
-                result: e.message
+                result: e.message,
+                reason: 'auth'
               });
-              clientsBus.checkOut(ws.$$session);
+              clientsBus.checkOut(ws.$$session, 'auth');
             });
             break;
           }
-          case 'push': break;
+          case 'joinGame': {
+            clientsBus.joinGame(ws.$$session, data.gid);
+            break;
+          }
+          case 'fetchMessages': {
+            const client = clientsBus.get(ws.$$session);
+            Message.fetchAllMessage(client.gid).then(messages => {
+              sendJSON(ws, { type: 'fetchMessages', messages });
+            });
+            break;
+          }
+          case 'push': {
+            const { toWho, group, person, text, creator: _creator } = data;
+            const client = clientsBus.get(ws.$$session);
+            const { gid, channel } = client;
+            const channelMembers = channel.members;
+
+            Message.storeMessage(gid, { text, _creator }, toWho, group, person)
+              .then(message => {
+                console.log(message);
+                message.reciever.forEach(reciever => {
+                  const uid = reciever._id.toString();
+                  if (channelMembers.has(uid)) {
+                    const $ws = channelMembers.get(uid);
+                    sendJSON($ws, { type: 'push', message });
+                    console.log('send push');
+                  }
+                });
+              }).then(() => {
+                sendJSON(ws, { type: 'pushMessageResult', status: 'ok' });
+              }).catch(e => {
+                sendJSON(ws, { type: 'pushMessageResult', status: 'error', message: e.message || e });
+              });
+            break;
+          }
+          case 'read': {
+            const client = clientsBus.get(ws.$$session);
+            const { mid } = data;
+            const uid = client.uid;
+
+
+            Message.read(uid, mid);
+
+            break;
+          }
           default: { break; }
         }
       } catch (e) {
