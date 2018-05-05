@@ -22,3 +22,4 @@ const messageSchema = mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = messageSchema;
+module.exports.SYSTEM_ID = '5ae701ef83b51ef6ba5c4753';

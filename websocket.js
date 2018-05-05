@@ -98,7 +98,14 @@ function WSServer(server) {
                 //owner not allowed someone to help
                 return;
               }
-            }).then(() => {
+            }).then(([game, user]) => {
+
+              if (game && user) {
+                Message.createSystemMessage(game._id, '[' + user.nickname + ']成为管理员').then(message => {
+                  const client = clientsBus.get(ws.$$session);
+                  client.channel.broadcast({ type: 'push', message });
+                });
+              }
               //先看对应的管理员是否在线
               for (const client of clientsBus.clients.values()) {
                 if (client.uid === uid) {
@@ -243,20 +250,47 @@ function websocketHttpHandler({ path, data, req_id }, ws) {
       break;
     }
     case publicPath + '/games/begin': {
+      const { gid } = data.body;
       Game.beginGame(data.body).then(games => {
         sendJSONResult(ws, req_id, { list: games });
+        Message.storeMessage(gid, { _creator: Message.SYSTEM_ID, text: '游戏开始' }, Message.MSG_TYPE.all)
+          .then(message => {
+            const channel = clientsBus.ChannelManager.get(gid);
+            if (channel) {
+              channel.broadcast({ type: 'push', message });
+            }
+          });
       }).catch(commonRej);
       break;
     }
     case publicPath + '/games/end': {
       Game.endGame(data.body).then(games => {
         sendJSONResult(ws, req_id, { list: games });
+        const gid = data.body.gid;
+        Message.storeMessage(gid, { _creator: Message.SYSTEM_ID, text: '游戏结束' }, Message.MSG_TYPE.all)
+          .then(message => {
+            const channel = clientsBus.ChannelManager.get(gid);
+            if (channel) {
+              channel.broadcast({ type: 'push', message });
+            }
+          });
+
       }).catch(commonRej);
       break;
     }
     case publicPath + '/games/join': {
+      const { gid, uid } = data.body;
       Game.joinGame(data.body).then(list => {
+
         sendJSONResult(ws, req_id, { team: list, result: 'ok' });
+        User._getUser(uid).then(user => {
+          return Message.createSystemMessage(gid, '[' + user.nickname + ']加入游戏');
+        }).then(message => {
+          const channel = clientsBus.ChannelManager.get(gid);
+          if (channel) {
+            channel.broadcast({ type: 'push', message });
+          }
+        });
       }).catch(commonRej);
       break;
     }
@@ -279,18 +313,70 @@ function websocketHttpHandler({ path, data, req_id }, ws) {
       break;
     }
     case publicPath + '/games/scoreadd': {
+      const { reason, gid, score, teamid, uid, isTeam } = data.body;
       Game.scoreAdd(data.body)
         .then(() => Game.getJoinList(data.body.gid))
         .then((team) => {
           sendJSONResult(ws, req_id, { team });
+
+          Promise.resolve().then(() => {
+            if (isTeam) {
+              const teamInclude = team.find(team => team._id === teamid);
+              if (teamInclude) {
+                return '队伍[' +
+                  teamInclude.team + ']' + (reason ? '因' + reason : '') + '获得' + score + '分';
+              }
+            } else {
+              return User._getUser(uid).then(user => '用户[' +
+                user.nickname + ']' + (reason ? '因' + reason : '') + '获得' + score + '分');
+            }
+          }).then(text => {
+            if (text) {
+              Message.createSystemMessage(gid, text)
+                .then(message => {
+                  const channel = clientsBus.ChannelManager.get(gid);
+                  if (channel) {
+                    channel.broadcast({ type: 'push', message });
+                  }
+                });
+            }
+          });
+
+
         }).catch(commonRej);
       break;
     }
     case publicPath + '/games/scoreminus': {
+      const { reason, gid, score, teamid, uid, isTeam } = data.body;
+
       Game.scoreMinus(data.body)
         .then(() => Game.getJoinList(data.body.gid))
         .then((team) => {
           sendJSONResult(ws, req_id, { team });
+
+          Promise.resolve().then(() => {
+            if (isTeam) {
+              const teamInclude = team.find(team => team._id === teamid);
+              if (teamInclude) {
+                return '队伍[' +
+                  teamInclude.team + ']' + (reason ? '因' + reason : '') + '惩罚' + score + '分';
+              }
+            } else {
+              return User._getUser(uid).then(user => '用户[' +
+                user.nickname + ']' + (reason ? '因' + reason : '') + '惩罚' + score + '分');
+            }
+          }).then(text => {
+            if (text) {
+              Message.createSystemMessage(gid, text)
+                .then(message => {
+                  const channel = clientsBus.ChannelManager.get(gid);
+                  if (channel) {
+                    channel.broadcast({ type: 'push', message });
+                  }
+                });
+            }
+          });
+
         }).catch(commonRej);
       break;
     }
@@ -352,6 +438,14 @@ function websocketHttpHandler({ path, data, req_id }, ws) {
 
       User.createUser(data.body).then((user) => {
         sendJSONResult(ws, req_id, { user: user }
+        );
+      }).catch(commonRej);
+      break;
+    }
+    case publicPath + '/messages/read': {
+
+      Message.read(data.body).then((status) => {
+        sendJSONResult(ws, req_id, { status }
         );
       }).catch(commonRej);
       break;

@@ -5,6 +5,11 @@ function Channel(gameid) {
   this.members = new Map();
 }
 
+Channel.prototype.broadcast = function (obj) {
+  for (let ws of this.members.values()) {
+    ws.send(JSON.stringify(obj));
+  }
+};
 Channel.prototype.join = function (uid, ws) {
   this.members.set(uid, ws);
 };
@@ -36,6 +41,10 @@ function ClientsBus() {
   this.checkAlive = this.checkAlive.bind(this);
 }
 
+
+
+ClientsBus.prototype.ChannelManager = ChannelManager;
+
 ClientsBus.prototype.getTicket = function (clientId, websocket) {
   this.clients.set(clientId, {
     ws: websocket,
@@ -52,6 +61,13 @@ ClientsBus.prototype.ticketChecked = function (clientId, uid) {
 
   const client = this.clients.get(clientId);
   clearTimeout(client.timmer);
+
+  for (let prev_client of this.clients.values()) {
+    if (prev_client.uid === uid) {
+      //已经有人登录了 ，把他踢出去
+      this.checkOut(prev_client.clientId, 'kickout');
+    }
+  }
 
   client.uid = uid;
 
@@ -118,6 +134,9 @@ ClientsBus.prototype.joinGame = function (clientId, gid) {
     client.gid = gid;
   }
 };
+
+
+
 const clientsBus = new ClientsBus().start();
 
 module.exports = clientsBus;
