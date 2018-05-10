@@ -173,7 +173,7 @@ function WSServer(server) {
                   if (channelMembers.has(uid)) {
                     const $ws = channelMembers.get(uid);
                     sendJSON($ws, { type: 'push', message });
-                    console.log('send push');
+
                   }
                 });
               }).then(() => {
@@ -184,12 +184,14 @@ function WSServer(server) {
             break;
           }
           case 'read': {
-            const client = clientsBus.get(ws.$$session);
-            const { mid } = data;
-            const uid = client.uid;
 
-
-            Message.read(uid, mid);
+            Message.read(data.body).then((status) => {
+              sendJSON(ws, {
+                type: 'dispatch',
+                action: { type: 'messages/readOne', payload: data.body }
+              }
+              );
+            });
 
             break;
           }
@@ -442,9 +444,9 @@ function websocketHttpHandler({ path, data, req_id }, ws) {
       }).catch(commonRej);
       break;
     }
-    case publicPath + '/messages/read': {
+    case publicPath + '/messages/drop': {
 
-      Message.read(data.body).then((status) => {
+      Message.drop(data.body.mid).then((status) => {
         sendJSONResult(ws, req_id, { status }
         );
       }).catch(commonRej);

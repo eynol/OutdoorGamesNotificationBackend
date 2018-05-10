@@ -110,7 +110,7 @@ exports.drop = function (mid) {
     if (channel) {
       channel.broadcast({
         type: 'dispatch',
-        action: { type: 'messages/drop', payload: mid }
+        action: { type: 'messages/dropOne', payload: mid }
       });
     }
 

@@ -78,7 +78,17 @@ exports.deleteGame = function ({ gid }) {
   return Promise.all([
     Game.deleteOne({ _id: gid }),
     JoinList.deleteMany({ _gameId: gid }).exec()
-  ]);
+  ]).then(ret => {
+    const channel = clientBus.ChannelManager.get(gid);
+    if (channel) {
+      channel.broadcast({
+        type: 'dispatch',
+        action: { type: 'games/gameover', payload: gid }
+      });
+    }
+
+    return ret;
+  });
 };
 
 exports.getJoinList = function (gid) {
